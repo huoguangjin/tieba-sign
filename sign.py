@@ -21,33 +21,30 @@ forums = [
 ]
 
 s = requests.Session()
+s.headers.update({
+    'User-Agent': 'bdtb for Android 8.8.8.8'
+})
 data = {
     'BDUSS': BDUSS,
     'tbs': tbs
 }
 
 
-def calc_sign(param_map):
-    """com/baidu/tbadk/m/a.java#addSign"""
-    keys = param_map.keys()
-    keys.sort()
-    param_str = ''.join(k + '=' + param_map[k] for k in keys)
-    return hashlib.md5(param_str + 'tiebaclient!!!').hexdigest().upper()
-
-
 def send_request(url, data):
-    data['sign'] = calc_sign(data)
+    """com/baidu/tbadk/m/a.java#addSign"""
+    keys = data.keys()
+    keys.sort()
+    param_str = ''.join('%s=%s' % (k, data[k]) for k in keys)
+    data['sign'] = hashlib.md5(param_str + 'tiebaclient!!!').hexdigest().upper()
     resp = s.post(url, data=data)
-    result = resp.content.decode('unicode-escape')
-    json_result = json.loads(result)
-    return result, json_result
+    return resp.json()
 
 
 def update_tbs():
     login_url = 'http://c.tieba.baidu.com/c/s/login'
     login_data = {'bdusstoken': data['BDUSS']}
-    result, j = send_request(login_url, login_data)
-    return j['anti']['tbs']
+    result = send_request(login_url, login_data)
+    return result['anti']['tbs']
 
 
 def read_forums():
@@ -93,11 +90,11 @@ def sign(kw, fid):
     sign_url = 'http://c.tieba.baidu.com/c/c/forum/sign'
     sign_data = {'kw': kw, 'fid': fid}
     sign_data.update(data)
-    result, j = send_request(sign_url, sign_data)
-    if j['error_code'] == '160002':
+    result = send_request(sign_url, sign_data)
+    if result['error_code'] == '160002':
         print('>> signed', kw)
-    elif j['error_code'] == '0':
-        info = j['user_info']
+    elif result['error_code'] == '0':
+        info = result['user_info']
         level = info['level_name']
         cont = info['cont_sign_num']
         print('>> sign %s: %s %s' % (kw, level, cont))
@@ -109,7 +106,7 @@ def add_post(kw, fid, tid, content):
     post_url = 'http://c.tieba.baidu.com/c/c/post/add'
     post_data = {'kw': kw, 'fid': fid, 'tid': tid, 'content': content}
     post_data.update(data)
-    result, j = send_request(post_url, post_data)
+    result = send_request(post_url, post_data)
     print(result)
 
 
